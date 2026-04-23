@@ -257,7 +257,10 @@
     .log-sheet {
       border: 2px solid #222;
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      overflow-x: auto;
+      overflow: visible;
+      aspect-ratio: 128 / 182; /* B6縦比率 */
+      display: flex;
+      flex-direction: column;
     }
 
     .sheet-top {
@@ -278,34 +281,35 @@
     .log-table {
       width: 100%;
       border-collapse: collapse;
-      table-layout: fixed;
+      flex: 1;
     }
 
     .log-table td, .log-table th {
       border: 1px solid #888;
       text-align: center;
       vertical-align: middle;
-      padding: 2px 4px;
-      font-size: .72rem;
-      overflow: hidden;
+      padding: 1px 2px;
+      font-size: .58rem;
     }
 
     .lbl {
       background: #efefef;
       font-weight: bold;
-      font-size: .65rem;
+      font-size: .55rem;
       border-color: #555;
     }
 
-    .col-no      { width: 5%; }
+    .col-no      { width: 7%; }
     .col-date    { width: 8%; }
-    .col-title   { width: 29%; text-align: left; padding-left: 5px; font-size: .68rem; white-space: normal; line-height: 1.3; }
-    .col-wclabel { width: 5%; font-size: .48rem; background: #f0f0f0; writing-mode: horizontal-tb; }
-    .col-digit   { width: 4.8%; font-size: .8rem; font-weight: bold; }
+    .col-title   { width: 41%; text-align: left; padding-left: 4px; font-size: .56rem; white-space: normal; line-height: 1.2; }
+    .col-wclabel { width: 12%; font-size: .46rem; background: #f0f0f0; white-space: nowrap; overflow: visible; padding: 0; }
+    .col-digit   { width: 4.57%; font-size: .6rem; font-weight: bold; }
 
-    .log-table tbody tr { height: 14px; }
-    .log-table tbody tr:nth-child(odd) { border-bottom: none; }
-    .log-table tbody tr:nth-child(even) td { border-top: none; }
+    .log-table tbody { height: 100%; }
+    .log-table tbody tr { height: auto; }
+    /* この本行と累計行の境界は点線 */
+    .log-table tbody tr.row-kono td { border-bottom: 1px dotted #aaa; }
+    .log-table tbody tr.row-ruikei td { border-top: none; }
 
     /* ===== 印刷 ===== */
     @media print {
@@ -327,14 +331,14 @@
 
       .log-sheet { border-width: 1.5pt; overflow: visible; }
 
-      .log-table td, .log-table th { font-size: 6pt; border-color: #888; }
+      .log-table td, .log-table th { font-size: 5.5pt; border-color: #888; padding: 0 1pt; }
       .lbl { font-size: 5pt; }
-      .col-title { font-size: 5.5pt; white-space: normal; line-height: 1.3; }
-      .col-wclabel { font-size: 4.5pt; }
-      .col-digit { font-size: 6.5pt; }
-      .log-table tbody tr { height: 19pt; }
-      .log-table tbody tr:nth-child(odd) { border-bottom: none; }
-      .log-table tbody tr:nth-child(even) td { border-top: none; }
+      .col-title { font-size: 5pt; white-space: normal; line-height: 1.2; }
+      .col-wclabel { font-size: 4pt; }
+      .col-digit { font-size: 5.5pt; }
+      .log-table tbody tr { height: 20pt; }
+      .log-table tbody tr.row-kono td { border-bottom: 0.5pt dotted #aaa; }
+      .log-table tbody tr.row-ruikei td { border-top: none; }
 
       .sheet-top { padding: 2pt 5pt; }
       .st-title  { font-size: 8pt; }
@@ -433,13 +437,14 @@
     <table class="log-table">
       <thead>
         <tr>
-          <th class="lbl col-no">No.</th>
-          <th class="lbl col-date">Date</th>
-          <th class="lbl col-title">Title</th>
-          <th class="lbl col-wclabel">この本</th>
-          <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
+          <th class="lbl col-no" rowspan="2">No.</th>
+          <th class="lbl col-date" rowspan="2">Date</th>
+          <th class="lbl col-title" rowspan="2">Title</th>
+          <th class="lbl" colspan="8">Word Count</th>
+        </tr>
+        <tr>
           <th class="lbl col-wclabel">累計</th>
-          <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
+          <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
         </tr>
       </thead>
       <tbody id="log-body"></tbody>
@@ -3652,37 +3657,46 @@ function render() {
     }).join('');
   }
 
-  // 数字を1桁ずつtdに分割（count桁、左ゼロ埋めなし）
-  function digitCells(n, count = 5) {
+  // 数字を1桁ずつtdに分割（7桁、左は空白）
+  function digitCells(n) {
     const s = n > 0 ? String(n) : '';
-    const padded = s.padStart(count, '\u0000'); // nullで左埋め
+    const padded = s.padStart(7, '\u0000');
     return Array.from(padded).map(c =>
       `<td class="col-digit">${c === '\u0000' ? '' : c}</td>`
     ).join('');
   }
-  const EMPTY_DIGITS = '<td class="col-digit"></td>'.repeat(5);
-  const EMPTY_WC = `<td class="col-wclabel"></td>${EMPTY_DIGITS}<td class="col-wclabel"></td>${EMPTY_DIGITS}`;
+  const EMPTY_DIGITS = '<td class="col-digit"></td>'.repeat(7);
 
-  // テーブル（1冊 = 2行: 上段にデータ、下段は空白線）
+  // テーブル（1冊 = 2行: この本行 / 累計行）
   const MIN_ROWS = 10;
   let runTotal = 0;
   const entries = [];
   books.forEach((b, i) => {
     runTotal += b.words;
-    entries.push(`<tr>
-      <td class="col-no" rowspan="2">${i + 1}</td>
-      <td class="col-date" rowspan="2">${b.date}</td>
-      <td class="col-title" rowspan="2">${b.title}</td>
-      <td class="col-wclabel">この本</td>${digitCells(b.words)}<td class="col-wclabel">累計</td>${digitCells(runTotal)}
-    </tr><tr>${EMPTY_WC}</tr>`);
+    entries.push(
+      `<tr class="row-kono">
+        <td class="col-no" rowspan="2">${i + 1}</td>
+        <td class="col-date" rowspan="2">${b.date}</td>
+        <td class="col-title" rowspan="2">${b.title}</td>
+        <td class="col-wclabel">この本</td>${digitCells(b.words)}
+      </tr>` +
+      `<tr class="row-ruikei">
+        <td class="col-wclabel">累計</td>${digitCells(runTotal)}
+      </tr>`
+    );
   });
   while (entries.length < MIN_ROWS) {
-    entries.push(`<tr>
-      <td class="col-no" rowspan="2"></td>
-      <td class="col-date" rowspan="2"></td>
-      <td class="col-title" rowspan="2"></td>
-      ${EMPTY_WC}
-    </tr><tr>${EMPTY_WC}</tr>`);
+    entries.push(
+      `<tr class="row-kono">
+        <td class="col-no" rowspan="2"></td>
+        <td class="col-date" rowspan="2"></td>
+        <td class="col-title" rowspan="2"></td>
+        <td class="col-wclabel">この本</td>${EMPTY_DIGITS}
+      </tr>` +
+      `<tr class="row-ruikei">
+        <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
+      </tr>`
+    );
   }
   document.getElementById('log-body').innerHTML = entries.join('');
 }
