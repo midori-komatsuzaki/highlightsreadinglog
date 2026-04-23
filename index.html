@@ -3800,33 +3800,41 @@ async function processScreenshots() {
 }
 
 // OCRテキストを解析してCompleted本のみ抽出
+// DB照合方式：OCRテキスト全体からDBのタイトルに近い文字列を探す
 function parseOcrText(text) {
   const MONTH = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
   const result = [];
 
-  // 行を前処理：ゴミ文字除去、重複パターン解決
-  function cleanLine(raw) {
-    // 行頭の非英字を除去
-    let s = raw.replace(/^[^A-Za-z'"]+/, '').trim();
-    // "X = Y" パターン → Y を使う
-    const eqMatch = s.match(/^.+?\s*=\s*(.+)$/);
-    if (eqMatch) s = eqMatch[1].trim();
-    // "TITLE TITLE" のような完全重複 → 前半を使う
-    const words = s.split(/\s+/);
-    const half = Math.ceil(words.length / 2);
-    if (words.length >= 4 && words.slice(0, half).join(' ') === words.slice(half).join(' ')) {
-      s = words.slice(0, half).join(' ');
+  function norm(s) {
+    return s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  // 指定した行範囲のテキストからDBで最もスコアの高い本を返す
+  function findBestTitle(startLine, endLine) {
+    const chunk = norm(lines.slice(startLine, endLine).join(' '));
+    let bestTitle = '';
+    let bestScore = 0;
+
+    for (const [t] of BOOKS) {
+      const tn = norm(t);
+      if (tn.length < 3) continue;
+      const words = tn.split(' ').filter(w => w.length >= 3);
+      if (!words.length) continue;
+      let hits = 0;
+      for (const w of words) {
+        if (chunk.includes(w)) hits++;
+      }
+      const score = hits / words.length;
+      if (score > bestScore && score >= 0.6) {
+        bestScore = score;
+        bestTitle = t;
+      }
     }
-    return s;
+    return bestTitle;
   }
 
-  function isMetadata(line) {
-    return /\b(Series|Type|Level|General|Books|Still reading|Completed|Assignment|Highlights|My Profile|My History|Support)\b/i.test(line)
-      || /^\d+$/.test(line)
-      || /^[^A-Za-z]{3,}$/.test(line);
-  }
-
+  let prevCompletedLine = 0;
   for (let j = 0; j < lines.length; j++) {
     const line = lines[j];
     const readMatch = line.match(/Read\s+(\d{4})-(\d{1,2})-([A-Za-z]{3})/i);
@@ -3836,34 +3844,11 @@ function parseOcrText(text) {
     const month = MONTH[readMatch[3].toLowerCase().slice(0,3)] || 1;
     const date  = month + '/' + day;
 
-    // Series行を探してその前の候補行をすべて収集
-    let candidates = [];
-    for (let k = j - 1; k >= Math.max(0, j - 12); k--) {
-      if (/Series/i.test(lines[k])) {
-        // Series行より前の行を候補として収集
-        for (let m = k - 1; m >= Math.max(0, k - 6); m--) {
-          if (isMetadata(lines[m])) continue;
-          const cleaned = cleanLine(lines[m]);
-          if (cleaned.length >= 3 && /[A-Za-z]{2}/.test(cleaned)) {
-            candidates.push(cleaned);
-          }
-        }
-        break;
-      }
-    }
+    const startSearch = Math.max(prevCompletedLine, j - 15);
+    const title = findBestTitle(startSearch, j);
 
-    if (!candidates.length) continue;
-
-    // DBに一致するものを優先して選ぶ
-    let best = '';
-    for (const c of candidates) {
-      const { found } = lookupWords(c);
-      if (found) { best = c; break; }
-    }
-    // DBにない場合は一番長い候補を使う
-    if (!best) best = candidates.reduce((a, b) => a.length >= b.length ? a : b, '');
-
-    if (best) result.push({ title: best, date });
+    if (title) result.push({ title, date });
+    prevCompletedLine = j + 1;
   }
   return result;
 }
