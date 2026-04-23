@@ -250,7 +250,7 @@
 
     /* ===== ログシート（プレビュー） ===== */
     .preview-card {
-      max-width: 500px; /* B6縦の比率に合わせる */
+      max-width: 960px;
       margin: 0 auto;
       background: #fff;
       border-radius: 10px;
@@ -259,6 +259,11 @@
     }
     .preview-label { font-size: .7rem; color: #aaa; margin-bottom: 8px; }
 
+    .print-wrapper {
+      display: flex;
+      gap: 8px;
+    }
+
     .log-sheet {
       border: 2px solid #222;
       font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -266,6 +271,7 @@
       aspect-ratio: 128 / 182; /* B6縦比率 */
       display: flex;
       flex-direction: column;
+      flex: 1;
     }
 
     .sheet-top {
@@ -330,11 +336,18 @@
       }
 
       @page {
-        size: 128mm 182mm; /* B6縦 (B5の半分) */
-        margin: 5mm 6mm;
+        size: 257mm 182mm; /* B5横 (B6縦×2) */
+        margin: 3mm 4mm;
       }
 
-      .log-sheet { border-width: 1.5pt; overflow: visible; }
+      .print-wrapper {
+        display: flex;
+        gap: 4mm;
+        width: 100%;
+        height: 100%;
+      }
+
+      .log-sheet { border-width: 1.5pt; overflow: visible; flex: 1; }
 
       .log-table td, .log-table th { font-size: 5.5pt; border-color: #888; padding: 0 1pt; }
       .lbl { font-size: 5pt; }
@@ -432,28 +445,54 @@
 
 <!-- ===== ログシート ===== -->
 <div class="preview-card">
-  <div class="preview-label">▼ 印刷プレビュー（B6縦サイズ）</div>
-  <div class="log-sheet">
-    <div class="sheet-top">
-      <span class="st-title">Highlights Reading Log</span>
-      <span class="st-name" id="hdr-name"></span>
-      <span class="st-period" id="hdr-period"></span>
+  <div class="preview-label">▼ 印刷プレビュー（B5横・B6縦×2枚）</div>
+  <div class="print-wrapper">
+    <!-- 左シート：データ -->
+    <div class="log-sheet">
+      <div class="sheet-top">
+        <span class="st-title">Highlights Reading Log</span>
+        <span class="st-name" id="hdr-name"></span>
+        <span class="st-period" id="hdr-period"></span>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th class="lbl col-no" rowspan="2">No.</th>
+            <th class="lbl col-date" rowspan="2">Date</th>
+            <th class="lbl col-title" rowspan="2">Title</th>
+            <th class="lbl" colspan="8">Word Count</th>
+          </tr>
+          <tr>
+            <th class="lbl col-wclabel">累計</th>
+            <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
     </div>
-    <table class="log-table">
-      <thead>
-        <tr>
-          <th class="lbl col-no" rowspan="2">No.</th>
-          <th class="lbl col-date" rowspan="2">Date</th>
-          <th class="lbl col-title" rowspan="2">Title</th>
-          <th class="lbl" colspan="8">Word Count</th>
-        </tr>
-        <tr>
-          <th class="lbl col-wclabel">累計</th>
-          <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
-        </tr>
-      </thead>
-      <tbody id="log-body"></tbody>
-    </table>
+    <!-- 右シート：空白 -->
+    <div class="log-sheet">
+      <div class="sheet-top">
+        <span class="st-title">Highlights Reading Log</span>
+        <span class="st-name" id="hdr-name2"></span>
+        <span class="st-period" id="hdr-period2"></span>
+      </div>
+      <table class="log-table">
+        <thead>
+          <tr>
+            <th class="lbl col-no" rowspan="2">No.</th>
+            <th class="lbl col-date" rowspan="2">Date</th>
+            <th class="lbl col-title" rowspan="2">Title</th>
+            <th class="lbl" colspan="8">Word Count</th>
+          </tr>
+          <tr>
+            <th class="lbl col-wclabel">累計</th>
+            <th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th><th class="lbl col-digit"></th>
+          </tr>
+        </thead>
+        <tbody id="log-body2"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -3703,6 +3742,30 @@ function render() {
     );
   }
   document.getElementById('log-body').innerHTML = entries.join('');
+
+  // 右シート（空白10行）
+  const emptyEntries = [];
+  for (let i = 0; i < MIN_ROWS; i++) {
+    emptyEntries.push(
+      `<tr class="row-kono">
+        <td class="col-no" rowspan="2"></td>
+        <td class="col-date" rowspan="2"></td>
+        <td class="col-title" rowspan="2"></td>
+        <td class="col-wclabel">この本</td>${EMPTY_DIGITS}
+      </tr>` +
+      `<tr class="row-ruikei">
+        <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
+      </tr>`
+    );
+  }
+  const body2 = document.getElementById('log-body2');
+  if (body2) body2.innerHTML = emptyEntries.join('');
+
+  // 右シートのヘッダーも同期
+  const n2 = document.getElementById('hdr-name2');
+  const p2 = document.getElementById('hdr-period2');
+  if (n2) n2.textContent = document.getElementById('hdr-name').textContent;
+  if (p2) p2.textContent = document.getElementById('hdr-period').textContent;
 }
 
 // ===== インポート =====
