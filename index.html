@@ -3711,13 +3711,15 @@ function render() {
   }
   const EMPTY_DIGITS = '<td class="col-digit"></td>'.repeat(7);
 
-  // テーブル（1冊 = 2行: この本行 / 累計行）10冊ずつページ表示
+  // テーブル（左右2枚で20冊を1ページ）
   const MIN_ROWS = 10;
-  const totalPages = Math.max(1, Math.ceil(books.length / MIN_ROWS));
+  const PER_PAGE = MIN_ROWS * 2; // 左10冊＋右10冊
+  const totalPages = Math.max(1, Math.ceil(books.length / PER_PAGE));
   if (!render.page) render.page = 0;
   if (render.page >= totalPages) render.page = totalPages - 1;
-  const pageBooks = books.slice(render.page * MIN_ROWS, (render.page + 1) * MIN_ROWS);
-  const offset = render.page * MIN_ROWS;
+  const leftBooks = books.slice(render.page * PER_PAGE, render.page * PER_PAGE + MIN_ROWS);
+  const rightBooks = books.slice(render.page * PER_PAGE + MIN_ROWS, (render.page + 1) * PER_PAGE);
+  const offset = render.page * PER_PAGE;
 
   function makeRows(bks, startNo) {
     const rows = [];
@@ -3750,11 +3752,11 @@ function render() {
     return rows.join('');
   }
 
-  document.getElementById('log-body').innerHTML = makeRows(pageBooks, offset);
+  document.getElementById('log-body').innerHTML = makeRows(leftBooks, offset);
 
-  // 右シート（空白10行）
+  // 右シート（11〜20冊目）
   const body2 = document.getElementById('log-body2');
-  if (body2) body2.innerHTML = makeRows([], 0);
+  if (body2) body2.innerHTML = makeRows(rightBooks, offset + MIN_ROWS);
 
   // ページ切り替えUI
   let pageUi = document.getElementById('page-nav');
