@@ -267,7 +267,7 @@
     .log-sheet {
       border: 2px solid #222;
       font-family: 'Helvetica Neue', Arial, sans-serif;
-      overflow: visible;
+      overflow: hidden;
       aspect-ratio: 128 / 182; /* B6縦比率 */
       display: flex;
       flex-direction: column;
@@ -3711,55 +3711,67 @@ function render() {
   }
   const EMPTY_DIGITS = '<td class="col-digit"></td>'.repeat(7);
 
-  // テーブル（1冊 = 2行: この本行 / 累計行）
-  // 累計は手書き用に空欄のまま
+  // テーブル（1冊 = 2行: この本行 / 累計行）10冊ずつページ表示
   const MIN_ROWS = 10;
-  const entries = [];
-  books.forEach((b, i) => {
-    entries.push(
-      `<tr class="row-kono">
-        <td class="col-no" rowspan="2">${i + 1}</td>
-        <td class="col-date" rowspan="2">${b.date}</td>
-        <td class="col-title" rowspan="2">${b.title}</td>
-        <td class="col-wclabel">この本</td>${digitCells(b.words)}
-      </tr>` +
-      `<tr class="row-ruikei">
-        <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
-      </tr>`
-    );
-  });
-  while (entries.length < MIN_ROWS) {
-    entries.push(
-      `<tr class="row-kono">
-        <td class="col-no" rowspan="2"></td>
-        <td class="col-date" rowspan="2"></td>
-        <td class="col-title" rowspan="2"></td>
-        <td class="col-wclabel">この本</td>${EMPTY_DIGITS}
-      </tr>` +
-      `<tr class="row-ruikei">
-        <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
-      </tr>`
-    );
+  const totalPages = Math.max(1, Math.ceil(books.length / MIN_ROWS));
+  if (!render.page) render.page = 0;
+  if (render.page >= totalPages) render.page = totalPages - 1;
+  const pageBooks = books.slice(render.page * MIN_ROWS, (render.page + 1) * MIN_ROWS);
+  const offset = render.page * MIN_ROWS;
+
+  function makeRows(bks, startNo) {
+    const rows = [];
+    bks.forEach((b, i) => {
+      rows.push(
+        `<tr class="row-kono">
+          <td class="col-no" rowspan="2">${startNo + i + 1}</td>
+          <td class="col-date" rowspan="2">${b.date}</td>
+          <td class="col-title" rowspan="2">${b.title}</td>
+          <td class="col-wclabel">この本</td>${digitCells(b.words)}
+        </tr>` +
+        `<tr class="row-ruikei">
+          <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
+        </tr>`
+      );
+    });
+    while (rows.length < MIN_ROWS) {
+      rows.push(
+        `<tr class="row-kono">
+          <td class="col-no" rowspan="2"></td>
+          <td class="col-date" rowspan="2"></td>
+          <td class="col-title" rowspan="2"></td>
+          <td class="col-wclabel">この本</td>${EMPTY_DIGITS}
+        </tr>` +
+        `<tr class="row-ruikei">
+          <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
+        </tr>`
+      );
+    }
+    return rows.join('');
   }
-  document.getElementById('log-body').innerHTML = entries.join('');
+
+  document.getElementById('log-body').innerHTML = makeRows(pageBooks, offset);
 
   // 右シート（空白10行）
-  const emptyEntries = [];
-  for (let i = 0; i < MIN_ROWS; i++) {
-    emptyEntries.push(
-      `<tr class="row-kono">
-        <td class="col-no" rowspan="2"></td>
-        <td class="col-date" rowspan="2"></td>
-        <td class="col-title" rowspan="2"></td>
-        <td class="col-wclabel">この本</td>${EMPTY_DIGITS}
-      </tr>` +
-      `<tr class="row-ruikei">
-        <td class="col-wclabel">累計</td>${EMPTY_DIGITS}
-      </tr>`
-    );
-  }
   const body2 = document.getElementById('log-body2');
-  if (body2) body2.innerHTML = emptyEntries.join('');
+  if (body2) body2.innerHTML = makeRows([], 0);
+
+  // ページ切り替えUI
+  let pageUi = document.getElementById('page-nav');
+  if (!pageUi) {
+    pageUi = document.createElement('div');
+    pageUi.id = 'page-nav';
+    pageUi.style.cssText = 'text-align:center;margin:8px 0;font-size:.8rem;display:flex;gap:8px;justify-content:center;align-items:center;';
+    document.querySelector('.preview-card').insertBefore(pageUi, document.querySelector('.print-wrapper'));
+  }
+  if (totalPages > 1) {
+    pageUi.innerHTML = `<button onclick="render.page=Math.max(0,render.page-1);render()">◀</button>
+      <span>${render.page + 1} / ${totalPages} ページ</span>
+      <button onclick="render.page=Math.min(${totalPages-1},render.page+1);render()">▶</button>`;
+    pageUi.style.display = 'flex';
+  } else {
+    pageUi.style.display = 'none';
+  }
 
   // 右シートのヘッダーも同期
   const n2 = document.getElementById('hdr-name2');
