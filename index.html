@@ -3704,6 +3704,7 @@ function render() {
 
   // 数字を1桁ずつtdに分割（7桁、左は空白）
   function digitCells(n) {
+    if (n === null || n === undefined) return '<td class="col-digit"></td>'.repeat(7);
     const s = n > 0 ? String(n) : '';
     const padded = s.padStart(7, '\u0000');
     return Array.from(padded).map(c =>
@@ -3942,7 +3943,7 @@ function lookupWords(title) {
   if (!found && norm.length >= 5) found = BOOKS.find(([t]) => normalize(t).includes(norm) || norm.includes(normalize(t)));
   return {
     matchedTitle: found ? found[0] : title,
-    words: found ? found[1] : 0,
+    words: found ? found[1] : null,
     found: !!found
   };
 }
