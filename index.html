@@ -337,15 +337,17 @@
       }
 
       @page {
-        size: 257mm 182mm; /* B5横 */
-        margin: 3mm 4mm;
+        size: 297mm 210mm; /* A4横 */
+        margin: 0; /* 余白0：ブラウザのURL/ページ番号フッターも消える */
       }
 
+      /* 中身を実寸B5（257×182mm）で右上に配置。外枠に沿って切ればB5になる */
       .print-wrapper {
         display: flex;
         gap: 4mm;
-        width: 100%;
-        height: 100%;
+        width: 257mm;
+        height: 182mm;
+        margin: 6mm 6mm 0 auto; /* 上6mm・右6mm・左autoで右寄せ */
       }
 
       .log-sheet { border-width: 1.5pt; overflow: hidden; flex: 1; }
