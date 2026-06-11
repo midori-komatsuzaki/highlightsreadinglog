@@ -3893,22 +3893,37 @@ function parseOcrText(text) {
 
   // 指定した行範囲のテキストからDBで最もスコアの高い本を返す
   function findBestTitle(startLine, endLine) {
-    const chunk = norm(lines.slice(startLine, endLine).join(' '));
+    const chunk = ' ' + norm(lines.slice(startLine, endLine).join(' ')) + ' ';
     let bestTitle = '';
     let bestScore = 0;
+    let bestHits = 0;
 
     for (const [t] of BOOKS) {
       const tn = norm(t);
       if (tn.length < 3) continue;
       const words = tn.split(' ').filter(w => w.length >= 3);
       if (!words.length) continue;
+
+      // 意味のある単語が1つしかない短いタイトルは、タイトル全体がそのまま
+      // 含まれている場合のみ採用（誤マッチ防止）
+      if (words.length === 1) {
+        if (chunk.includes(' ' + tn + ' ')) {
+          if (1 > bestScore) { bestScore = 1; bestHits = 1; bestTitle = t; }
+        }
+        continue;
+      }
+
       let hits = 0;
       for (const w of words) {
-        if (chunk.includes(w)) hits++;
+        // 単語単位で照合（別の単語の一部にヒットするのを防ぐ）
+        if (chunk.includes(' ' + w + ' ')) hits++;
       }
       const score = hits / words.length;
-      if (score > bestScore && score >= 0.6) {
+      if (score < 0.6) continue;
+      // 同点なら一致した単語数が多い（より具体的な）タイトルを優先
+      if (score > bestScore || (score === bestScore && hits > bestHits)) {
         bestScore = score;
+        bestHits = hits;
         bestTitle = t;
       }
     }
